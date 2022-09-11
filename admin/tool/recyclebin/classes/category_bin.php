@@ -117,9 +117,18 @@ class category_bin extends base_bin {
         // This hack will be removed once recycle bin switches to use its own backup mode, with
         // own preferences and 100% separate from MOODLE_AUTOMATED.
         // TODO: Remove this as part of MDL-65228.
-        $forcedbackupsettings = $CFG->forced_plugin_settings['backup'] ?? [];
+        if (isset($CFG->forced_plugin_settings['backup'])) {
+            $oldbackupconfig = $CFG->forced_plugin_settings['backup'];
+        }
+        // Config to exclude files from backup.
+        // Set via cli e.g. php admin/cli/cfg.php --set=1 --name=recycle_bin_exclude_files --component=recyclebin.
         $CFG->forced_plugin_settings['backup']['backup_auto_storage'] = 0;
-        $CFG->forced_plugin_settings['backup']['backup_auto_files'] = 1;
+        $excludefiles = get_config('recyclebin', 'recycle_bin_exclude_files');
+        if ($excludefiles) {
+            $CFG->forced_plugin_settings['backup']['backup_auto_files'] = 0;
+        } else {
+            $CFG->forced_plugin_settings['backup']['backup_auto_files'] = 1;
+        }
 
         // Backup the course.
         $user = get_admin();
@@ -135,7 +144,9 @@ class category_bin extends base_bin {
 
         // We don't need the forced setting anymore, hence restore previous settings.
         // TODO: Remove this as part of MDL-65228.
-        $CFG->forced_plugin_settings['backup'] = $forcedbackupsettings;
+        if (isset($oldbackupconfig)) {
+            $CFG->forced_plugin_settings['backup'] = $oldbackupconfig;
+        }
 
         // Grab the result.
         $result = $controller->get_results();
