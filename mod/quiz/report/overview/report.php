@@ -126,11 +126,20 @@ class quiz_overview_report extends quiz_attempts_report {
             // Print the display options.
             $this->form->display();
         }
+        list($fields, $from, $where, $params, $cols) = quiz_access_manager::build_additional_columns($quiz);
 
         $hasstudents = $hasstudents && (!$currentgroup || $this->hasgroupstudents);
         if ($hasquestions && ($hasstudents || $options->attempts == self::ALL_WITH)) {
             // Construct the SQL.
             $table->setup_sql_queries($allowedjoins);
+            if (!empty($cols)) {
+                $sql = $table->sql;
+                $sql->fields .= $fields;
+                $sql->from .= $from;
+                $sql->where .= $where;
+                $sql->params = array_merge($sql->params, $params);
+                $table->set_sql($sql->fields, $sql->from, $sql->where, $sql->params);
+            }
 
             if (!$table->is_downloading()) {
                 // Output the regrade buttons.
@@ -184,6 +193,13 @@ class quiz_overview_report extends quiz_attempts_report {
             // Define table columns.
             $columns = array();
             $headers = array();
+
+            if (!empty($cols)) {
+                foreach ($cols as $key => $value) {
+                    $columns[] = $key;
+                    $headers[] = $value;
+                }
+            }
 
             if (!$table->is_downloading() && $options->checkboxcolumn) {
                 $columnname = 'checkbox';
@@ -693,6 +709,7 @@ class quiz_overview_report extends quiz_attempts_report {
      */
     protected function update_overall_grades($quiz) {
         quiz_update_all_attempt_sumgrades($quiz);
+        quiz_update_attempts_sumgrades_with_penalty($quiz);
         quiz_update_all_final_grades($quiz);
         quiz_update_grades($quiz);
     }
