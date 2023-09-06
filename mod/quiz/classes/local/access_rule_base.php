@@ -353,4 +353,24 @@ abstract class access_rule_base {
     public static function get_extra_settings($quizid) {
         return [];
     }
+
+    /**
+     * Calculate penalty
+     * @param stdClass $attempt
+     *
+     * @return int
+     */
+    public static function calculate_percentage_penalty($attempt) {
+        return 0;
+    }
+
+    /**
+     * Build additional columns
+     * @param stdClass $quiz
+     *
+     * @return array
+     */
+    public static function build_additional_columns($quiz) {
+        return ['', '', '', [], []];
+    }
 }

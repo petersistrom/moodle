@@ -18,6 +18,7 @@ namespace mod_quiz;
 
 use coding_exception;
 use mod_quiz\event\quiz_grade_updated;
+use question_engine;
 use question_engine_data_mapper;
 use stdClass;
 
@@ -435,5 +436,44 @@ class grade_calculator {
         ])->trigger();
 
         $transaction->allow_commit();
+    }
+
+    /**
+     * Apply penalty to an attempt.
+     *
+     * @param stdClass $attempt
+     */
+    public function recompute_attempt_sumgrades_with_penalty($attempt) : void {
+
+        global $DB;
+        if (empty($attempt->sumgrades)) {
+            return;
+        }
+        $penalty = access_manager::accumulate_percentage_penalty($attempt);
+        if (!empty($penalty)) {
+            // Getting original grade.
+            $attemptobj = quiz_attempt::create($attempt->id);
+            $quba = question_engine::load_questions_usage_by_activity($attempt->uniqueid);
+            $originalgrade = $quba->get_total_mark();
+
+            // Calculate grade with penalty.
+            $quiz = $attemptobj->get_quiz();
+            $penalizedgrade = $originalgrade - ($quiz->sumgrades * $penalty / 100);
+            // Min grade will be 0.
+            $sumgrades = $penalizedgrade > 0 ? $penalizedgrade : 0;
+            $DB->set_field('quiz_attempts', 'sumgrades', $sumgrades, ['id' => $attempt->id]);
+        }
+    }
+
+    /**
+     * Apply penalty to selected attempts.
+     *
+     */
+    public function recompute_attempts_sumgrades_with_penalty() : void {
+        global $DB;
+        $attempts = $DB->get_records('quiz_attempts', ['quiz' => $this->quizobj->get_quizid(), 'state' => quiz_attempt::FINISHED]);
+        foreach ($attempts as $attempt) {
+            $this->recompute_attempt_sumgrades_with_penalty($attempt);
+        }
     }
 }
