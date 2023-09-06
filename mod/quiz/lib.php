@@ -2492,3 +2492,43 @@ function mod_quiz_calculate_question_stats(context $context): ?all_calculated_fo
     $report = new quiz_statistics_report();
     return $report->calculate_questions_stats_for_question_bank($cm->instance, false);
 }
+
+/**
+ * Apply penalty to an attempt.
+ *
+ * @param object $attempt
+ */
+function quiz_update_attempt_sumgrades_with_penalty($attempt) {
+
+    global $DB;
+    if (empty($attempt->sumgrades)) {
+        return;
+    }
+    $penalty = quiz_access_manager::accumulate_percentage_penalty($attempt);
+    if (!empty($penalty)) {
+        // Getting original grade.
+        $attemptobj = quiz_attempt::create($attempt->id);
+        $quba = question_engine::load_questions_usage_by_activity($attempt->uniqueid);
+        $originalgrade = $quba->get_total_mark();
+
+        // Calculate grade with penalty.
+        $quiz = $attemptobj->get_quiz();
+        $penalizedgrade = $originalgrade - ($quiz->sumgrades * $penalty / 100);
+        // Min grade will be 0.
+        $sumgrades = $penalizedgrade > 0 ? $penalizedgrade : 0;
+        $DB->set_field('quiz_attempts', 'sumgrades', $sumgrades, ['id' => $attempt->id]);
+    }
+}
+
+/**
+ * Apply penalty to selected attempts.
+ *
+ * @param $quiz the quiz where we will regrade attempts
+ */
+function quiz_update_attempts_sumgrades_with_penalty($quiz) {
+    global $DB;
+    $attempts = $DB->get_records('quiz_attempts', ['quiz' => $quiz->id, 'state' => quiz_attempt::FINISHED]);
+    foreach ($attempts as $attempt) {
+        quiz_update_attempt_sumgrades_with_penalty($attempt);
+    }
+}

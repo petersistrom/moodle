@@ -559,4 +559,37 @@ class quiz_access_manager {
         }
         return $errors;
     }
+
+    /**
+     * Calculate penalty
+     * @param $attempt
+     */
+    public static function accumulate_percentage_penalty($attempt) {
+        $percentage = 0;
+        foreach (self::get_rule_classes() as $rule) {
+            $percentage += $rule::calculate_percentage_penalty($attempt);
+        }
+        return $percentage > 100 ? 100 : $percentage;
+    }
+
+    /**
+     * Calculate penalty
+     * @param $attempt
+     */
+    public static function build_additional_columns($quiz) {
+        $fields = '';
+        $from = '';
+        $where = '';
+        $cols = [];
+        $params = [];
+        foreach (self::get_rule_classes() as $rule) {
+            list($newfield, $newform, $newwhere, $newparams, $newcols) = $rule::build_additional_columns($quiz);
+            $fields .= $newfield;
+            $from .= $newform;
+            $where .= $newwhere;
+            $cols =  array_merge($cols, $newcols);
+            $params = array_merge($params, $newparams);
+        }
+        return [$fields, $from, $where, $params, $cols];
+    }
 }
