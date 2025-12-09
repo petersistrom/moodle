@@ -1,5 +1,4 @@
 <?php
-
 // This file is part of Moodle - http://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
@@ -31,19 +30,34 @@ class file_logger extends base_logger {
 
     protected $fullpath; // Full path to OS file where contents will be stored
     protected $fhandle;  // File handle where all write operations happen
+    protected $relativepath; // Store the relative path for serialization
 
     public function __construct($level, $showdate = false, $showlevel = false, $fullpath = null) {
         if (empty($fullpath)) {
             throw new base_logger_exception('missing_fullpath_parameter', $fullpath);
         }
-        if (!is_writable(dirname($fullpath))) {
-            throw new base_logger_exception('file_not_writable', $fullpath);
+
+        // If an absolute path is provided, convert it to relative by extracting just the filename.
+        // This ensures backups are portable between different installations.
+        if (strpos($fullpath, '/') === 0 || preg_match('/^[a-zA-Z]:[\/\\\\]/', $fullpath)) {
+            // Extract just the filename from the absolute path.
+            $this->relativepath = basename($fullpath);
+        } else {
+            // Already a relative path.
+            $this->relativepath = $fullpath;
+        }
+
+        // Always construct the full path dynamically using current $CFG->backuptempdir.
+        $backuptempdir = make_backup_temp_directory('');
+        $this->fullpath = $backuptempdir . '/' . $this->relativepath;
+
+        if (!is_writable(dirname($this->fullpath))) {
+            throw new base_logger_exception('file_not_writable', $this->fullpath);
         }
         // Open the OS file for writing (append)
-        $this->fullpath = $fullpath;
         if ($level > backup::LOG_NONE) { // Only create the file if we are going to log something
             if (! $this->fhandle = fopen($this->fullpath, 'a')) {
-                throw new base_logger_exception('error_opening_file', $fullpath);
+                throw new base_logger_exception('error_opening_file', $this->fullpath);
             }
         }
         parent::__construct($level, $showdate, $showlevel);
@@ -62,10 +76,37 @@ class file_logger extends base_logger {
             @fclose($this->fhandle);
             $this->fhandle = null;
         }
-        return array('level', 'showdate', 'showlevel', 'next', 'fullpath');
+        // Only serialize the relative path, not the absolute path.
+        // The absolute path will be reconstructed on wakeup using the current environment.
+        return array('level', 'showdate', 'showlevel', 'next', 'relativepath');
     }
 
     public function __wakeup() {
+        // Handle old backups that don't have relativepath set.
+        if (empty($this->relativepath)) {
+            // For old backups, extract the filename from the stored fullpath.
+            if (!empty($this->fullpath)) {
+                $isAbsolute = (strpos($this->fullpath, '/') === 0 || preg_match('/^[a-zA-Z]:[\/\\\\]/', $this->fullpath));
+
+                if ($isAbsolute && !file_exists(dirname($this->fullpath))) {
+                    // Absolute path from different installation - extract filename.
+                    $this->relativepath = basename($this->fullpath);
+                } else if (!$isAbsolute) {
+                    // Already a relative path.
+                    $this->relativepath = $this->fullpath;
+                } else {
+                    // Absolute path that exists - extract filename for portability.
+                    $this->relativepath = basename($this->fullpath);
+                }
+            }
+        }
+
+        // Reconstruct the full path using the current $CFG->backuptempdir.
+        if (!empty($this->relativepath)) {
+            $backuptempdir = make_backup_temp_directory('');
+            $this->fullpath = $backuptempdir . '/' . $this->relativepath;
+        }
+
         if ($this->level > backup::LOG_NONE) { // Only create the file if we are going to log something
             if (! $this->fhandle = fopen($this->fullpath, 'a')) {
                 throw new base_logger_exception('error_opening_file', $this->fullpath);
