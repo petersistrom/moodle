@@ -31,19 +31,37 @@ class file_logger extends base_logger {
 
     protected $fullpath; // Full path to OS file where contents will be stored
     protected $fhandle;  // File handle where all write operations happen
+    /**
+     * @var string Store the relative path for serialization.
+     */
+    protected $relativepath;
 
     public function __construct($level, $showdate = false, $showlevel = false, $fullpath = null) {
         if (empty($fullpath)) {
             throw new base_logger_exception('missing_fullpath_parameter', $fullpath);
         }
-        if (!is_writable(dirname($fullpath))) {
-            throw new base_logger_exception('file_not_writable', $fullpath);
+
+        // If an absolute path is provided, convert it to relative by extracting just the filename.
+        if (strpos($fullpath, '/') === 0 || preg_match('/^[a-zA-Z]:[\/\\\\]/', $fullpath)) {
+            // Extract just the filename from the absolute path.
+            $this->relativepath = basename($fullpath);
+        } else {
+            // Already a relative path.
+            $this->relativepath = $fullpath;
+        }
+
+        // Always construct the full path dynamically using current $CFG->backuptempdir.
+        $backuptempdir = make_backup_temp_directory('');
+        $this->fullpath = $backuptempdir . '/' . $this->relativepath;
+
+        if (!is_writable(dirname($this->fullpath))) {
+            throw new base_logger_exception('file_not_writable', $this->fullpath);
         }
         // Open the OS file for writing (append)
         $this->fullpath = $fullpath;
         if ($level > backup::LOG_NONE) { // Only create the file if we are going to log something
             if (! $this->fhandle = fopen($this->fullpath, 'a')) {
-                throw new base_logger_exception('error_opening_file', $fullpath);
+                throw new base_logger_exception('error_opening_file', $this->fullpath);
             }
         }
         parent::__construct($level, $showdate, $showlevel);
@@ -62,7 +80,9 @@ class file_logger extends base_logger {
             @fclose($this->fhandle);
             $this->fhandle = null;
         }
-        return array('level', 'showdate', 'showlevel', 'next', 'fullpath');
+        // Only serialize the relative path, not the absolute path.
+        // The absolute path will be reconstructed on wakeup using the current environment.
+        return ['level', 'showdate', 'showlevel', 'next', 'relativepath'];
     }
 
     public function __wakeup() {
