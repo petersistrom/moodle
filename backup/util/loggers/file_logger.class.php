@@ -66,6 +66,23 @@ class file_logger extends base_logger {
     }
 
     public function __wakeup() {
+        // Handle both absolute and relative paths for portability.
+        // If fullpath is absolute and doesn't exist, try to reconstruct it using current backup temp dir.
+        if (!empty($this->fullpath)) {
+            $isabsolute = (strpos($this->fullpath, '/') === 0 || preg_match('/^[a-zA-Z]:[\/\\\\]/', $this->fullpath));
+
+            if ($isabsolute && !file_exists(dirname($this->fullpath))) {
+                // Absolute path from different installation - extract filename and use current backup temp dir.
+                $filename = basename($this->fullpath);
+                $backuptempdir = make_backup_temp_directory('');
+                $this->fullpath = $backuptempdir . '/' . $filename;
+            } else if (!$isabsolute) {
+                // Relative path - construct full path using current backup temp dir.
+                $backuptempdir = make_backup_temp_directory('');
+                $this->fullpath = $backuptempdir . '/' . $this->fullpath;
+            }
+        }
+
         if ($this->level > backup::LOG_NONE) { // Only create the file if we are going to log something
             if (! $this->fhandle = fopen($this->fullpath, 'a')) {
                 throw new base_logger_exception('error_opening_file', $this->fullpath);
