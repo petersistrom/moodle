@@ -41,24 +41,20 @@ class file_logger extends base_logger {
             throw new base_logger_exception('missing_fullpath_parameter', $fullpath);
         }
 
-        // If an absolute path is provided, convert it to relative by extracting just the filename.
         if (strpos($fullpath, '/') === 0 || preg_match('/^[a-zA-Z]:[\/\\\\]/', $fullpath)) {
-            // Extract just the filename from the absolute path.
-            $this->relativepath = basename($fullpath);
+            $this->fullpath = $fullpath;
         } else {
             // Already a relative path.
             $this->relativepath = $fullpath;
+            // Always construct the full path dynamically using current $CFG->backuptempdir.
+            $backuptempdir = make_backup_temp_directory('');
+            $this->fullpath = $backuptempdir . '/' . $this->relativepath;
         }
-
-        // Always construct the full path dynamically using current $CFG->backuptempdir.
-        $backuptempdir = make_backup_temp_directory('');
-        $this->fullpath = $backuptempdir . '/' . $this->relativepath;
 
         if (!is_writable(dirname($this->fullpath))) {
             throw new base_logger_exception('file_not_writable', $this->fullpath);
         }
         // Open the OS file for writing (append)
-        $this->fullpath = $fullpath;
         if ($level > backup::LOG_NONE) { // Only create the file if we are going to log something
             if (! $this->fhandle = fopen($this->fullpath, 'a')) {
                 throw new base_logger_exception('error_opening_file', $this->fullpath);
@@ -82,13 +78,20 @@ class file_logger extends base_logger {
         }
         // Only serialize the relative path, not the absolute path.
         // The absolute path will be reconstructed on wakeup using the current environment.
-        return ['level', 'showdate', 'showlevel', 'next', 'relativepath'];
+        if ($this->relativepath !== null) {
+            return ['level', 'showdate', 'showlevel', 'next', 'relativepath'];
+        }
+        return ['level', 'showdate', 'showlevel', 'next', 'fullpath'];
     }
 
     public function __wakeup() {
         // Handle both absolute and relative paths for portability.
-        // If fullpath is absolute and doesn't exist, try to reconstruct it using current backup temp dir.
-        if (!empty($this->fullpath)) {
+        if (!empty($this->relativepath)) {
+            // Relative path - construct full path using current backup temp dir.
+            $backuptempdir = make_backup_temp_directory('');
+            $this->fullpath = $backuptempdir . '/' . $this->relativepath;
+        } else if (!empty($this->fullpath)) {
+            // If fullpath is absolute and doesn't exist, try to reconstruct it using current backup temp dir.
             $isabsolute = (strpos($this->fullpath, '/') === 0 || preg_match('/^[a-zA-Z]:[\/\\\\]/', $this->fullpath));
 
             if ($isabsolute && !file_exists(dirname($this->fullpath))) {
