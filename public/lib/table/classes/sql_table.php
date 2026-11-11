@@ -17,6 +17,7 @@
 namespace core_table;
 
 use flexible_table;
+use moodle_database;
 use moodle_recordset;
 use stdClass;
 
@@ -45,6 +46,9 @@ class sql_table extends flexible_table {
 
     /** @var array|\Traversable Data fetched from the db */
     public $rawdata = null;
+
+    /** @var bool Run queries on the read-only replica, see {@see moodle_database::get_readonly_connection()} */
+    protected bool $usereadonlyconnection = false;
 
     /** @var bool Overriding default for this */
 
@@ -148,6 +152,17 @@ class sql_table extends flexible_table {
     }
 
     /**
+     * Database connection used to run the table queries
+     *
+     * @return moodle_database
+     */
+    protected function get_database(): moodle_database {
+        global $DB;
+
+        return $this->usereadonlyconnection && $DB->has_readonly_connection() ? $DB->get_readonly_connection() : $DB;
+    }
+
+    /**
      * Query the db. Store results in the table object for use by build_table.
      *
      * @param int $pagesize size of page for paginated displayed table.
@@ -155,13 +170,13 @@ class sql_table extends flexible_table {
      * will only be used if there is a fullname column defined for the table.
      */
     public function query_db($pagesize, $useinitialsbar = true) {
-        global $DB;
+        $db = $this->get_database();
         if (!$this->is_downloading()) {
             if ($this->countsql === null) {
                 $this->countsql = 'SELECT COUNT(1) FROM ' . $this->sql->from . ' WHERE ' . $this->sql->where;
                 $this->countparams = $this->sql->params;
             }
-            $grandtotal = $DB->count_records_sql($this->countsql, $this->countparams);
+            $grandtotal = $db->count_records_sql($this->countsql, $this->countparams);
             if ($useinitialsbar && !$this->is_downloading()) {
                 $this->initialbars(true);
             }
@@ -174,7 +189,7 @@ class sql_table extends flexible_table {
                 $this->sql->where .= ' AND ' . $wsql;
                 $this->sql->params = array_merge($this->sql->params, $wparams);
 
-                $total  = $DB->count_records_sql($this->countsql, $this->countparams);
+                $total  = $db->count_records_sql($this->countsql, $this->countparams);
             } else {
                 $total = $grandtotal;
             }
@@ -194,9 +209,9 @@ class sql_table extends flexible_table {
                 {$sort}";
 
         if (!$this->is_downloading()) {
-            $this->rawdata = $DB->get_records_sql($sql, $this->sql->params, $this->get_page_start(), $this->get_page_size());
+            $this->rawdata = $db->get_records_sql($sql, $this->sql->params, $this->get_page_start(), $this->get_page_size());
         } else {
-            $this->rawdata = $DB->get_records_sql($sql, $this->sql->params);
+            $this->rawdata = $db->get_records_sql($sql, $this->sql->params);
         }
     }
 
@@ -209,9 +224,9 @@ class sql_table extends flexible_table {
      * @param string $downloadhelpbutton
      */
     public function out($pagesize, $useinitialsbar, $downloadhelpbutton = '') {
-        global $DB;
+        $db = $this->get_database();
         if (!$this->columns) {
-            $onerow = $DB->get_record_sql(
+            $onerow = $db->get_record_sql(
                 "SELECT {$this->sql->fields} FROM {$this->sql->from} WHERE {$this->sql->where}",
                 $this->sql->params,
                 IGNORE_MULTIPLE
