@@ -2931,6 +2931,28 @@ abstract class moodle_database {
     }
 
     /**
+     * Whether a read-only replica connection is available, see {@see self::get_readonly_connection()}.
+     *
+     * @return bool
+     */
+    public function has_readonly_connection(): bool {
+        return false;
+    }
+
+    /**
+     * Get a database connection that only talks to the read-only replica.
+     *
+     * Drivers supporting read replicas override this to return a dedicated replica connection.
+     * Check {@see self::has_readonly_connection()} first if the replica is optional.
+     *
+     * @return moodle_database
+     * @throws dml_connection_exception If no read-only replica is configured or reachable.
+     */
+    public function get_readonly_connection(): moodle_database {
+        throw new dml_connection_exception('Read-only database connection is not available');
+    }
+
+    /**
      * Returns the number of writes done by this database.
      * @return int Number of writes.
      */

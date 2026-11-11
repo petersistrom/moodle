@@ -122,6 +122,12 @@ trait moodle_read_replica_trait {
     /** @var array|null Driver specific options. */
     private $pdboptions;
 
+    /** @var array|null Connection details of the replica that was successfully connected to. */
+    private $replicaconnection = null;
+
+    /** @var moodle_database|null Lazily created dedicated connection to the replica. */
+    private $readonlyconnection = null;
+
     /**
      * Gets db handle currently used with queries.
      *
@@ -231,6 +237,12 @@ trait moodle_read_replica_trait {
                     try {
                         $this->raw_connect($rodb['dbhost'], $rodb['dbuser'], $rodb['dbpass'], $dbname, $prefix, $dboptions);
                         $this->dbhreadonly = $this->get_db_handle();
+                        $this->replicaconnection = [
+                            'dbhost' => $rodb['dbhost'],
+                            'dbuser' => $rodb['dbuser'],
+                            'dbpass' => $rodb['dbpass'],
+                            'dbport' => $dboptions['dbport'],
+                        ];
                         if ($logconnection) {
                             debugging(
                                 "Readonly db connection succeeded for host {$rodb['dbhost']}"
@@ -334,6 +346,56 @@ trait moodle_read_replica_trait {
 
             $this->written[$tablename] = $now;
         }
+    }
+
+    /**
+     * Whether a read-only replica connection is available, see {@see self::get_readonly_connection()}.
+     *
+     * @return bool
+     */
+    public function has_readonly_connection(): bool {
+        return $this->dbhreadonly && $this->replicaconnection;
+    }
+
+    /**
+     * Get a database connection that only ever talks to the read-only replica.
+     *
+     * Every query run through the returned object is sent to the replica, regardless of tables
+     * written to or latency, so the data may be slightly stale. Use it for queries that are
+     * known to be reads and tolerate replication delay (e.g. reports).
+     *
+     * The returned object is a separate connection: it does not share transactions or temporary
+     * tables with this one. Writes will fail if the replica user has no write privileges.
+     *
+     * If no replica is configured (or none could be reached) a {@see dml_connection_exception} is thrown,
+     * use {@see self::has_readonly_connection()} to check first if the replica is optional.
+     *
+     * @return moodle_database
+     * @throws dml_connection_exception If no read-only replica is configured or reachable.
+     */
+    public function get_readonly_connection(): moodle_database {
+        if (!$this->has_readonly_connection()) {
+            throw new dml_connection_exception('Read-only database connection is not available');
+        }
+
+        if ($this->readonlyconnection === null) {
+            $dboptions = (array) $this->pdboptions;
+            unset($dboptions['readonly']);
+            $dboptions['dbport'] = $this->replicaconnection['dbport'];
+
+            $connection = new static($this->external);
+            $connection->connect(
+                $this->replicaconnection['dbhost'],
+                $this->replicaconnection['dbuser'],
+                $this->replicaconnection['dbpass'],
+                $this->pdbname,
+                $this->pprefix,
+                $dboptions,
+            );
+            $this->readonlyconnection = $connection;
+        }
+
+        return $this->readonlyconnection;
     }
 
     /**
