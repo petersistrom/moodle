@@ -405,6 +405,41 @@ final class dml_read_replica_test extends \database_driver_testcase {
     }
 
     /**
+     * Test get_readonly_connection() returns a dedicated connection that always uses the replica.
+     */
+    public function test_get_readonly_connection(): void {
+        $DB = $this->new_db(latency: 2);
+
+        $readonly = $DB->get_readonly_connection();
+        $this->assertNotSame($DB, $readonly);
+        $this->assertSame($readonly, $DB->get_readonly_connection());
+
+        // Reads on the readonly connection ignore tables recently written to on the primary.
+        $DB->insert_record_raw('table', ['field' => 1]);
+        $DB->mark_tables_for_primary('table');
+        $this->assertEquals('test_rw::test:test', $DB->get_records('table'));
+        $this->assert_readonly_handle($readonly->get_records('table'));
+
+        // The readonly connection uses the first connectable replica only and has no replica of its own.
+        $this->assertFalse($readonly->want_read_replica());
+        $this->assertSame($readonly, $readonly->get_readonly_connection());
+    }
+
+    /**
+     * Test get_readonly_connection() falls back to the same connection without a usable replica.
+     */
+    public function test_get_readonly_connection_without_replica(): void {
+        $DB = new read_replica_moodle_database();
+        $DB->connect('test_rw', 'test', 'test', 'test', 'test_', []);
+        $this->assertSame($DB, $DB->get_readonly_connection());
+
+        $DB = $this->new_db(readonly: ['test_ro_fail']);
+        $this->assertCount(2, $this->getDebuggingMessages());
+        $this->resetDebugging();
+        $this->assertSame($DB, $DB->get_readonly_connection());
+    }
+
+    /**
      * Test readonly handle is not used with events
      * when the latency parameter is applied properly.
      *

@@ -2931,6 +2931,19 @@ abstract class moodle_database {
     }
 
     /**
+     * Get a database connection that only talks to the read-only replica.
+     *
+     * Drivers supporting read replicas override this to return a dedicated replica connection.
+     * By default (no replica support or configured) this same connection is returned, so callers
+     * can use the result unconditionally.
+     *
+     * @return moodle_database
+     */
+    public function get_readonly_connection(): moodle_database {
+        return $this;
+    }
+
+    /**
      * Returns the number of writes done by this database.
      * @return int Number of writes.
      */
