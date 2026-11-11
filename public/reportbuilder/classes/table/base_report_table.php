@@ -176,7 +176,7 @@ abstract class base_report_table extends table_sql implements dynamic, renderabl
      * @param bool $useinitialsbar
      */
     public function query_db($pagesize, $useinitialsbar = true): void {
-        global $DB;
+        $db = $this->get_database();
 
         if (!$this->is_downloading()) {
 
@@ -184,7 +184,7 @@ abstract class base_report_table extends table_sql implements dynamic, renderabl
             $this->pagesize($pagesize, 0);
 
             $countedcolumn = database::generate_alias();
-            $countedrecordset = $DB->get_counted_recordset_sql(
+            $countedrecordset = $db->get_counted_recordset_sql(
                 $this->get_table_sql(false),
                 $countedcolumn,
                 $this->get_sql_sort(),
@@ -199,7 +199,7 @@ abstract class base_report_table extends table_sql implements dynamic, renderabl
 
             $this->rawdata = $countedrecordset;
         } else {
-            $this->rawdata = $DB->get_recordset_sql($this->get_table_sql(), $this->sql->params);
+            $this->rawdata = $db->get_recordset_sql($this->get_table_sql(), $this->sql->params);
         }
     }
 
@@ -210,12 +210,10 @@ abstract class base_report_table extends table_sql implements dynamic, renderabl
      * @return int
      */
     public function get_total_row_count(): int {
-        global $DB;
-
         $counttablesql = $this->get_table_sql(false);
         $counttablealias = database::generate_alias();
 
-        return $DB->count_records_sql(
+        return $this->get_database()->count_records_sql(
             "SELECT COUNT(1) FROM ({$counttablesql}) {$counttablealias}",
             $this->sql->params,
         );

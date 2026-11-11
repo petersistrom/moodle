@@ -1,0 +1,10 @@
+issueNumber: MDL-90521
+notes:
+  core:
+    - message: >-
+        Added `moodle_database::get_readonly_connection()`, which returns a
+        connection that only uses the configured read-only replica, and
+        `moodle_database::has_readonly_connection()` to check one is
+        available. `get_readonly_connection()` throws a
+        `dml_connection_exception` if there is no replica.
+      type: improved

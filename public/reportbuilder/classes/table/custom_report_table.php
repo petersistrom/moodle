@@ -38,6 +38,9 @@ use core_reportbuilder\output\column_heading_editable;
  */
 class custom_report_table extends base_report_table {
 
+    /** @var bool Report data is read-only, and can tolerate replication delay */
+    protected bool $usereadonlyconnection = true;
+
     /** @var datasource $report */
     protected $report;
 
