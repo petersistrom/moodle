@@ -545,7 +545,6 @@ $string['deleteuserx'] = 'Delete user {$a}?';
 $string['deleteduserx'] = 'Deleted user {$a}';
 $string['density'] = 'Density';
 $string['denyemailaddresses'] = 'Denied email domains';
-$string['devlibdirpresent'] = 'Directories with development libraries, especially <em>/vendor</em> and <em>/node_modules</em>, should not be present on public sites. See the <a href="{$a->moreinfourl}">security overview report</a> for more details.';
 $string['development'] = 'Development';
 $string['devicetype'] = 'Device type';
 $string['disabled'] = 'Disabled';

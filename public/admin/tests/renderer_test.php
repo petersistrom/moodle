@@ -99,7 +99,6 @@ final class renderer_test extends \advanced_testcase {
             'cachewarnings' => [],
             'eventshandlers' => 0,
             'themedesignermode' => false,
-            'devlibdir' => false,
             'mobileconfigured' => true,
             'overridetossl' => false,
             'invalidforgottenpasswordurl' => false,
@@ -120,7 +119,7 @@ final class renderer_test extends \advanced_testcase {
         $CFG->disableupdatenotifications = true;
 
         $output = $this->render_notifications_page([
-            'devlibdir' => true,
+            'insecuredataroot' => INSECURE_DATAROOT_ERROR,
             'cronoverdue' => true,
             'errorsdisplayed' => true,
         ]);
@@ -305,7 +304,7 @@ final class renderer_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $output = $this->render_notifications_page([
-            'devlibdir' => true,
+            'insecuredataroot' => INSECURE_DATAROOT_ERROR,
             'cronoverdue' => true,
             'availableupdates' => ['core' => null],
             'availableupdatesfetch' => time() - (8 * DAYSECS),

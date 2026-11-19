@@ -119,3 +119,4 @@ noscales,core_grades
 homeheader,core
 revokedapitoken,core_error
 deletecheckfull,core
+devlibdirpresent,core_admin

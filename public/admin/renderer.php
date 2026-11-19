@@ -260,8 +260,8 @@ class core_admin_renderer extends plugin_renderer_base {
      * Display the admin notifications page.
      *
      * @deprecated Since Moodle 5.3. Use core_admin_renderer::notifications_page() instead. The
-     * $showcampaigncontent, $showfeedbackencouragement and $showservicesandsupport arguments are ignored, as the
-     * content they controlled has been replaced by the "From Moodle" call to action cards.
+     * $devlibdir, $showcampaigncontent, $showfeedbackencouragement and $showservicesandsupport arguments are ignored,
+     * as the content they controlled has been replaced by the "From Moodle" call to action cards.
      */
     #[\core\attribute\deprecated(
         replacement: 'notifications_page',
@@ -308,7 +308,6 @@ class core_admin_renderer extends plugin_renderer_base {
             $cachewarnings,
             $eventshandlers,
             $themedesignermode,
-            $devlibdir,
             $mobileconfigured,
             $overridetossl,
             $invalidforgottenpasswordurl,
@@ -331,7 +330,6 @@ class core_admin_renderer extends plugin_renderer_base {
      * @param string[] $cachewarnings An array containing warnings from the Cache API.
      * @param array $eventshandlers Events 1 API handlers.
      * @param bool $themedesignermode Warn about the theme designer mode.
-     * @param bool $devlibdir Warn about development libs directory presence.
      * @param bool $mobileconfigured Whether the mobile web services have been enabled
      * @param bool $overridetossl Whether or not ssl is being forced.
      * @param bool $invalidforgottenpasswordurl Whether the forgotten password URL does not link to a valid URL.
@@ -354,7 +352,6 @@ class core_admin_renderer extends plugin_renderer_base {
         array $cachewarnings = [],
         $eventshandlers = 0,
         $themedesignermode = false,
-        $devlibdir = false,
         $mobileconfigured = false,
         $overridetossl = false,
         $invalidforgottenpasswordurl = false,
@@ -381,7 +378,6 @@ class core_admin_renderer extends plugin_renderer_base {
             $this->insecure_dataroot_warning($insecuredataroot),
             $insecuredataroot == INSECURE_DATAROOT_ERROR ? 'danger' : 'warning'
         );
-        $add($this->development_libs_directories_warning($devlibdir), 'danger');
         $add($this->themedesignermode_warning($themedesignermode), 'warning');
         $add($this->display_errors_warning($errorsdisplayed), 'warning');
         $add($this->buggy_iconv_warning($buggyiconvnomb), 'warning');
@@ -727,24 +723,6 @@ class core_admin_renderer extends plugin_renderer_base {
                 get_string('notificationlabelsecurity', 'admin'),
                 'danger'
             );
-
-        } else {
-            return '';
-        }
-    }
-
-    /**
-     * Render a warning that a directory with development libs is present.
-     *
-     * @param bool $devlibdir True if the warning should be displayed.
-     * @return string
-     */
-    protected function development_libs_directories_warning($devlibdir) {
-
-        if ($devlibdir) {
-            $moreinfo = new moodle_url('/report/security/index.php');
-            $warning = get_string('devlibdirpresent', 'core_admin', ['moreinfourl' => $moreinfo->out()]);
-            return $this->warning_with_label($warning, get_string('notificationlabelsecurity', 'admin'), 'danger');
 
         } else {
             return '';
